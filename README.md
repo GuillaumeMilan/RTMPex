@@ -1,6 +1,6 @@
-# Rtmp
+# RTMPex
 
-**TODO: Add description**
+**RTMPex** is a library that provides a easy to use RTMP client for **Elixir**
 
 ## Installation
 
@@ -19,3 +19,12 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/rtmp](https://hexdocs.pm/rtmp).
 
+## Developpement status
+
+| Feature | Status |
+| --- | --- |
+| Server connection handshake | Done & Tested |
+| Chunk header reading | Done & To be tested in real situation |
+| Chunk formatting | Todo |
+| Control message parsing | Todo |
+| Control message formatting | Todo |
