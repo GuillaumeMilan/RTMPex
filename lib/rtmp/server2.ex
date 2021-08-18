@@ -11,13 +11,12 @@ defmodule RTMP.Server2 do
   end
 
   def terminate(reason, %{socket: socket}) do
-    Logger.debug("[Server]: Closing scoket du to #{inspect reason}")
+    Logger.debug("[Server]: Closing socket due to #{inspect reason}")
     :gen_tcp.close(socket)
   end
-  
+
   def handle_cast(:create_connection, %{socket: socket} = state) do
     {:ok, pid} = RTMP.Connection2.start_link({socket, self()}, [])
-    :ok = :gen_tcp.controlling_process(socket, pid)
     {:noreply, Map.update!(state, :clients, fn clients -> [pid|clients] end)}
   end
 
@@ -33,9 +32,9 @@ end
 defmodule RTMP.Connection2 do
   use GenServer
   require Logger
-    
+
   @moduledoc """
-    
+
   Connection FSM:
   - :handshaking_phase1 -----------> Receive C0 -------------> :handshaking_phase1
   - :handshaking_phase1 -----------> Receive C1 -------------> :handshaking_phase2
@@ -45,6 +44,7 @@ defmodule RTMP.Connection2 do
 
   def init({socket, server}) do
     {:ok, client} = :gen_tcp.accept(socket)
+    Logger.debug("[Connection][#{inspect self()}] accepting a new connection")
     GenServer.cast(self(), :waiting_message)
     GenServer.cast(server, :create_connection)
     id = :crypto.strong_rand_bytes(1528)
@@ -53,7 +53,7 @@ defmodule RTMP.Connection2 do
   end
 
   def terminate(reason, %{client: client, server: server}) do
-    Logger.debug("[Connection] Closing connection due to #{inspect reason}")
+    Logger.debug("[Connection][#{inspect self()}] Closing connection due to #{inspect reason}")
     :gen_tcp.close(client)
     GenServer.cast(server, {:unregister_client, self()})
   end
@@ -61,7 +61,7 @@ defmodule RTMP.Connection2 do
   def handle_cast(:waiting_message, %{client: client, fsm: %{state: :handshaking_phase1}} = state) do
     case RTMP.MessageManager.receive_message(:handshake1, client) do
       <<0x03, time::bytes-size(4), 0, 0, 0, 0, rand::bytes-size(1528)>> -> # we wait until receiving C0 and C1 (lazy enough)
-        Logger.debug("[Connection] Receive C0 and C1")
+        Logger.debug("[Connection][#{inspect self()}] Receive C0 and C1")
         server_time = server_time(state.start_timestamp)
         send_s1(client, server_time, state.id)
         send_s2(client, time, server_time, rand)
@@ -69,19 +69,27 @@ defmodule RTMP.Connection2 do
         {:noreply, (state |> Map.update!(:fsm, fn _ -> %{state: :handshaking_phase2} end))}
       message ->
         inspect_message = "<<#{to_bytes(message, []) |> Enum.map(fn <<x>> -> x end)|> Enum.join(", ")}>>"
-        Logger.debug("[Connection] Bad message received #{inspect_message} \nWith a length of #{length(to_bytes(message, []))}")
+        Logger.warn("[Connection][#{inspect self()}] Bad message received #{inspect_message} \nWith a length of #{length(to_bytes(message, []))}")
         {:stop, :error}
     end
   end
   def handle_cast(:waiting_message, %{client: client, fsm: %{state: :handshaking_phase2}} = state) do
     case RTMP.MessageManager.receive_message(:handshake2, client) do
       <<_server_timestamp::bytes-size(4), _time::bytes-size(4), _rand::bytes-size(1528)>> -> 
-        Logger.debug("[Connection] Receive C2")
+        Logger.debug("[Connection][#{inspect self()}] Receive C2")
         GenServer.cast(self(), :waiting_message)
         {:noreply, (state |> Map.update!(:fsm, fn _ -> %{state: :connected} end))}
-      message -> 
+      message ->
         inspect_message = "<<#{to_bytes(message, []) |> Enum.map(fn <<x>> -> x end)|> Enum.join(", ")}>>"
-        Logger.debug("[Connection] Bad message received #{inspect_message} \nWith a length of #{length(to_bytes(message, []))}")
+        Logger.warn("[Connection][#{inspect self()}] Bad message received #{inspect_message} \nWith a length of #{length(to_bytes(message, []))}")
+        {:stop, :error}
+    end
+  end
+  def handle_cast(:waiting_message, %{client: client, fsm: %{state: :connected}} = state) do
+    case RTMP.MessageManager.receive_a_chunk(client) do
+      message ->
+        inspect_message = "<<#{to_bytes(message, []) |> Enum.map(fn <<x>> -> x end)|> Enum.join(", ")}>>"
+        Logger.warn("[Connection][#{inspect self()}] Bad message received #{inspect_message} \nWith a length of #{length(to_bytes(message, []))}")
         {:stop, :error}
     end
   end
@@ -89,8 +97,9 @@ defmodule RTMP.Connection2 do
     {:stop, :terminated}
   end
   def handle_cast(message, state) do
-    Logger.debug("[Connection] Receive message #{inspect message} \nWith state #{inspect state}")
-    {:noreply, state}
+    Logger.warn("[Connection][#{inspect self()}] Receive message not handled #{inspect message} \nWith state #{inspect state} \nStopping now")
+    {:stop, :error}
+    #{:noreply, state}
   end
 
   def send_s0(client) do
@@ -121,5 +130,5 @@ defmodule RTMP.Connection2 do
   def to_bytes(string, list) do
     <<b::bytes-size(1)>> <> rest = string
     to_bytes(rest, [b|list])
- end
+  end
 end
