@@ -1,6 +1,6 @@
 # RTMPex
 
-**RTMPex** is a library that provides a easy to use RTMP client for **Elixir**
+**RTMPex** is a library that provides a easy to use RTMP client and server written in **Elixir**
 
 ## Installation
 
