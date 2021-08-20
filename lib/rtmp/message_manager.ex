@@ -88,10 +88,10 @@ defmodule RTMP.MessageManager.TestHelper do
         <<307::size(24)>>, # message length 307 
         <<9::size(8)>>, # message type 9 == video
         <<12346::size(32)>>, # message stream id
-      >><><<0::size(1456)>>, # 128 bytes large message
+      >><><<0::size(1024)>>, # 128 bytes large message
       <<
         0b11000100, # ftm 3 -- cs_id 4
-      >><><<0::size(1456)>>,
+      >><><<0::size(1024)>>,
       <<
         0b11000100, # ftm 3 -- cs_id 4
       >><><<0::size(408)>>,
@@ -101,7 +101,7 @@ end
 
 defmodule RTMP.MessageManager.Chunk.Header do
   require Logger
-  
+
   defstruct fmt: 0, chunk_stream_id: 0, timestamp: 0, message_length: 0, message_type_id: 0, message_stream_id: 0, most_recent_fmt: -1, extended_timestamp: false
 
   @maximum_timestamp 16777215

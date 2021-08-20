@@ -2,6 +2,8 @@
 
 **RTMPex** is a library that provides a easy to use RTMP client and server written in **Elixir**
 
+All the specification reference refere to the the Adobe specification: [RTMP Specification 1.0](https://wwwimages2.adobe.com/content/dam/acom/en/devnet/rtmp/pdf/rtmp_specification_1.0.pdf)
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
